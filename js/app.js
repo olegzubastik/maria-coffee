@@ -28,7 +28,7 @@
   /* ---------- Утилиты ---------- */
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-  const rub = (n) => n.toLocaleString('ru-RU') + ' ₽';
+  const uah = (n) => n.toLocaleString('uk-UA') + ' ₴';
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const plural = (n, [one, few, many]) => {
     const m10 = n % 10, m100 = n % 100;
@@ -47,27 +47,27 @@
     back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
   };
 
-  const stars = (n) => `<span class="stars" aria-label="${n} из 5">${[1, 2, 3, 4, 5].map((i) => ICON.star.replace('<svg', `<svg class="${i <= n ? '' : 'off'}"`)).join('')}</span>`;
+  const stars = (n) => `<span class="stars" aria-label="${n} з 5">${[1, 2, 3, 4, 5].map((i) => ICON.star.replace('<svg', `<svg class="${i <= n ? '' : 'off'}"`)).join('')}</span>`;
 
-  /* ---------- Часы работы ---------- */
+  /* ---------- Години роботи ---------- */
   const HOURS = [ // индекс = getDay() (0 — воскресенье)
     [9, 23], [8, 22], [8, 22], [8, 22], [8, 22], [8, 23], [9, 23],
   ];
-  const DAY_NAMES = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+  const DAY_NAMES = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота'];
   function openStatus() {
     const now = new Date();
     const [from, to] = HOURS[now.getDay()];
     const h = now.getHours() + now.getMinutes() / 60;
-    if (h >= from && h < to) return { open: true, text: `Открыто до ${to}:00` };
+    if (h >= from && h < to) return { open: true, text: `Відчинено до ${to}:00` };
     const nextFrom = h < from ? from : HOURS[(now.getDay() + 1) % 7][0];
-    return { open: false, text: `Закрыто · откроемся в ${nextFrom}:00` };
+    return { open: false, text: `Зачинено · відчинимося о ${nextFrom}:00` };
   }
 
   /* ---------- Корзина ---------- */
   const cartCount = () => Object.values(state.cart).reduce((a, b) => a + b, 0);
   const cartSubtotal = () => Object.entries(state.cart).reduce((s, [id, q]) => s + byId[id].price * q, 0);
-  const DELIVERY_FEE = 150;
-  const FREE_DELIVERY_FROM = 1000;
+  const DELIVERY_FEE = 60;
+  const FREE_DELIVERY_FROM = 500;
 
   function setQty(id, qty) {
     if (qty <= 0) delete state.cart[id];
@@ -89,7 +89,7 @@
     setQty(id, (state.cart[id] || 0) + qty);
     if (fromEl) flyToCart(fromEl);
     else updateBadges(true);
-    toast(`«${byId[id].name}» в корзине`);
+    toast(`«${byId[id].name}» у кошику`);
   }
 
   function flyToCart(fromEl) {
@@ -173,11 +173,11 @@
         <p class="detail__desc">${esc(m.desc)}</p>
         <div class="detail__buy">
           <div class="qty qty--lg">
-            <button type="button" data-d="-1" aria-label="Меньше">−</button>
+            <button type="button" data-d="-1" aria-label="Менше">−</button>
             <output>1</output>
-            <button type="button" data-d="1" aria-label="Больше">+</button>
+            <button type="button" data-d="1" aria-label="Більше">+</button>
           </div>
-          <button class="btn" data-sheet-add>В корзину · <span data-sum>${rub(m.price)}</span></button>
+          <button class="btn" data-sheet-add>У кошик · <span data-sum>${uah(m.price)}</span></button>
         </div>
       </div>`);
     const body = $('#sheet-body');
@@ -186,7 +186,7 @@
       if (d) {
         qty = Math.max(1, Math.min(20, qty + Number(d.dataset.d)));
         $('output', body).textContent = qty;
-        $('[data-sum]', body).textContent = rub(m.price * qty);
+        $('[data-sum]', body).textContent = uah(m.price * qty);
       }
       if (e.target.closest('[data-sheet-add]')) {
         closeSheet();
@@ -197,17 +197,17 @@
 
   /* ---------- Шаблоны ---------- */
   const itemCard = (m) => `
-    <article class="item card" data-open="${m.id}" tabindex="0" role="button" aria-label="${esc(m.name)}, ${rub(m.price)}">
+    <article class="item card" data-open="${m.id}" tabindex="0" role="button" aria-label="${esc(m.name)}, ${uah(m.price)}">
       <div class="item__img">
         <img src="${m.img}" alt="" loading="lazy" onload="this.classList.add('loaded')">
-        ${m.popular ? '<span class="item__hit">Хит</span>' : ''}
+        ${m.popular ? '<span class="item__hit">Хіт</span>' : ''}
       </div>
       <div class="item__body">
         <span class="item__name">${esc(m.name)}</span>
         <span class="item__weight">${m.weight}</span>
         <div class="item__foot">
-          <span class="price">${rub(m.price)}</span>
-          <button class="add" data-add="${m.id}" aria-label="Добавить ${esc(m.name)}">${ICON.plus}</button>
+          <span class="price">${uah(m.price)}</span>
+          <button class="add" data-add="${m.id}" aria-label="Додати ${esc(m.name)}">${ICON.plus}</button>
         </div>
       </div>
     </article>`;
@@ -226,36 +226,36 @@
   pages.home = () => {
     const st = openStatus();
     const hour = new Date().getHours();
-    const greet = hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
+    const greet = hour < 12 ? 'Доброго ранку' : hour < 18 ? 'Добрий день' : 'Добрий вечір';
     return `
       <section class="hero">
         <img class="hero__img" src="${IMG('1509042239860-f550ce710b93').replace('w=600&h=600', 'w=900&h=1000')}" alt="">
         <span class="hero__tag">${greet} ✦</span>
-        <h1>Кофе, который<br>хочется <em>смаковать</em></h1>
-        <p>Свежая обжарка, домашние десерты и завтраки весь день.</p>
-        <a href="#menu" class="btn">Смотреть меню</a>
+        <h1>Кава, яку<br>хочеться <em>смакувати</em></h1>
+        <p>Свіже обсмаження, домашні десерти та сніданки весь день.</p>
+        <a href="#menu" class="btn">Дивитися меню</a>
       </section>
 
       <div class="card status">
         <span class="status__dot ${st.open ? '' : 'closed'}"></span>
-        <div><b>${st.text}</b><span>ул. Садовая, 12 · заберите заказ без очереди</span></div>
+        <div><b>${st.text}</b><span>вул. Ярославів Вал, 12 · заберіть замовлення без черги</span></div>
       </div>
 
       <section class="section">
-        <div class="section__head"><h2 class="h2">Популярное</h2><a href="#menu" class="link">Всё меню</a></div>
+        <div class="section__head"><h2 class="h2">Популярне</h2><a href="#menu" class="link">Усе меню</a></div>
         <div class="hscroll stagger">${MENU.filter((m) => m.popular).map(itemCard).join('')}</div>
       </section>
 
       <section class="section">
         <div class="features stagger">
-          <div class="card feature"><div>🌱</div><b>Своя обжарка</b><span>каждую неделю</span></div>
-          <div class="card feature"><div>🥐</div><b>Выпечка</b><span>каждые 2 часа</span></div>
-          <div class="card feature"><div>🛵</div><b>Доставка</b><span>от 30 минут</span></div>
+          <div class="card feature"><div>🌱</div><b>Власне обсмаження</b><span>щотижня</span></div>
+          <div class="card feature"><div>🥐</div><b>Випічка</b><span>кожні 2 години</span></div>
+          <div class="card feature"><div>🛵</div><b>Доставка</b><span>від 30 хвилин</span></div>
         </div>
       </section>
 
       <section class="section">
-        <div class="section__head"><h2 class="h2">Нам доверяют</h2><a href="#reviews" class="link">Отзывы</a></div>
+        <div class="section__head"><h2 class="h2">Нам довіряють</h2><a href="#reviews" class="link">Відгуки</a></div>
         ${reviewCard(allReviews()[0])}
       </section>`;
   };
@@ -264,7 +264,7 @@
     const list = state.menuCat === 'all' ? MENU : MENU.filter((m) => m.cat === state.menuCat);
     return `
       <h1 class="title">Меню</h1>
-      <p class="muted">${MENU.length} ${plural(MENU.length, ['позиция', 'позиции', 'позиций'])} · готовим при вас</p>
+      <p class="muted">${MENU.length} ${plural(MENU.length, ['позиція', 'позиції', 'позицій'])} · готуємо при вас</p>
       <div class="chips" role="tablist">
         ${CATEGORIES.map((c) => `<button class="chip ${c.id === state.menuCat ? 'active' : ''}" data-cat="${c.id}" role="tab" aria-selected="${c.id === state.menuCat}">${c.name}</button>`).join('')}
       </div>
@@ -273,30 +273,30 @@
 
   pages.cart = () => {
     const entries = Object.entries(state.cart);
-    if (!entries.length) return empty('🛍️', 'Корзина пуста', 'Загляните в меню — там много вкусного.', '#menu', 'Перейти в меню');
+    if (!entries.length) return empty('🛍️', 'Кошик порожній', 'Зазирніть у меню — там багато смачного.', '#menu', 'Перейти до меню');
     return `
-      <h1 class="title">Корзина</h1>
-      <p class="muted">${cartCount()} ${plural(cartCount(), ['товар', 'товара', 'товаров'])}</p>
+      <h1 class="title">Кошик</h1>
+      <p class="muted">${cartCount()} ${plural(cartCount(), ['товар', 'товари', 'товарів'])}</p>
       <div class="cart-list stagger">
         ${entries.map(([id, q]) => {
           const m = byId[id];
           return `
           <div class="cart-row card" data-row="${id}">
             <img src="${m.img}" alt="">
-            <div class="cart-row__info"><b>${esc(m.name)}</b><span>${rub(m.price)} · ${m.weight}</span></div>
+            <div class="cart-row__info"><b>${esc(m.name)}</b><span>${uah(m.price)} · ${m.weight}</span></div>
             <div class="cart-row__right">
-              <b data-line="${id}">${rub(m.price * q)}</b>
+              <b data-line="${id}">${uah(m.price * q)}</b>
               <div class="qty">
-                <button data-dec="${id}" aria-label="Меньше">−</button>
+                <button data-dec="${id}" aria-label="Менше">−</button>
                 <output data-q="${id}">${q}</output>
-                <button data-inc="${id}" aria-label="Больше">+</button>
+                <button data-inc="${id}" aria-label="Більше">+</button>
               </div>
             </div>
           </div>`;
         }).join('')}
       </div>
       <div class="card summary" id="summary">${summaryHtml('pickup')}
-        <a href="#checkout" class="btn btn--block">Оформить заказ</a>
+        <a href="#checkout" class="btn btn--block">Оформити замовлення</a>
       </div>`;
   };
 
@@ -305,51 +305,51 @@
     const fee = method === 'delivery' && sub < FREE_DELIVERY_FROM ? DELIVERY_FEE : 0;
     return `
       <div data-sum-rows>
-        <div class="summary__row"><span>Товары</span><span>${rub(sub)}</span></div>
-        ${method === 'delivery' ? `<div class="summary__row"><span>Доставка</span><span>${fee ? rub(fee) : 'бесплатно'}</span></div>` : ''}
-        <div class="summary__row summary__row--total"><span>Итого</span><span>${rub(sub + fee)}</span></div>
+        <div class="summary__row"><span>Товари</span><span>${uah(sub)}</span></div>
+        ${method === 'delivery' ? `<div class="summary__row"><span>Доставка</span><span>${fee ? uah(fee) : 'безкоштовно'}</span></div>` : ''}
+        <div class="summary__row summary__row--total"><span>Разом</span><span>${uah(sub + fee)}</span></div>
       </div>`;
   }
 
   pages.checkout = () => {
     if (!cartCount()) { location.hash = '#cart'; return ''; }
     return `
-      <a href="#cart" class="link" style="display:inline-flex;align-items:center;gap:4px">${ICON.back} Корзина</a>
-      <h1 class="title" style="margin-top:10px">Оформление</h1>
+      <a href="#cart" class="link" style="display:inline-flex;align-items:center;gap:4px">${ICON.back} Кошик</a>
+      <h1 class="title" style="margin-top:10px">Оформлення</h1>
 
       <form class="form" id="checkout" novalidate style="margin-top:18px">
         <div class="field" data-f="name">
-          <label for="c-name">Имя</label>
-          <input class="input" id="c-name" name="name" autocomplete="given-name" placeholder="Как к вам обращаться">
-          <div class="field__err">Введите имя</div>
+          <label for="c-name">Ім’я</label>
+          <input class="input" id="c-name" name="name" autocomplete="given-name" placeholder="Як до вас звертатися">
+          <div class="field__err">Введіть ім’я</div>
         </div>
         <div class="field" data-f="phone">
           <label for="c-phone">Телефон</label>
-          <input class="input" id="c-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__">
-          <div class="field__err">Введите номер полностью</div>
+          <input class="input" id="c-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+380 (__) ___-__-__">
+          <div class="field__err">Введіть номер повністю</div>
         </div>
 
         <div class="field">
-          <label>Получение</label>
+          <label>Отримання</label>
           <div class="segmented">
-            <label class="option"><input type="radio" name="method" value="pickup" checked><span class="ico">🏃</span>Самовывоз</label>
+            <label class="option"><input type="radio" name="method" value="pickup" checked><span class="ico">🏃</span>Самовивіз</label>
             <label class="option"><input type="radio" name="method" value="delivery"><span class="ico">🛵</span>Доставка</label>
           </div>
           <div class="collapse" id="delivery-box"><div><div class="form">
             <div class="field" data-f="address">
-              <label for="c-addr">Адрес</label>
-              <input class="input" id="c-addr" name="address" autocomplete="street-address" placeholder="Улица, дом, квартира">
-              <div class="field__err">Укажите адрес доставки</div>
+              <label for="c-addr">Адреса</label>
+              <input class="input" id="c-addr" name="address" autocomplete="street-address" placeholder="Вулиця, будинок, квартира">
+              <div class="field__err">Вкажіть адресу доставки</div>
             </div>
-            <p class="muted" style="font-size:13px">Бесплатно от ${rub(FREE_DELIVERY_FROM)}, иначе ${rub(DELIVERY_FEE)}.</p>
+            <p class="muted" style="font-size:13px">Безкоштовно від ${uah(FREE_DELIVERY_FROM)}, інакше ${uah(DELIVERY_FEE)}.</p>
           </div></div></div>
         </div>
 
         <div class="field">
           <label>Оплата</label>
           <div class="segmented">
-            <label class="option"><input type="radio" name="pay" value="card" checked><span class="ico">💳</span>Картой</label>
-            <label class="option"><input type="radio" name="pay" value="cash"><span class="ico">💵</span>Наличными</label>
+            <label class="option"><input type="radio" name="pay" value="card" checked><span class="ico">💳</span>Карткою</label>
+            <label class="option"><input type="radio" name="pay" value="cash"><span class="ico">💵</span>Готівкою</label>
           </div>
         </div>
 
@@ -357,48 +357,48 @@
           <div class="bank-card" aria-hidden="true">
             <div class="bank-card__top"><span>Maria</span><span class="bank-card__chip"></span></div>
             <div class="bank-card__num" data-prev="num">•••• •••• •••• ••••</div>
-            <div class="bank-card__bottom"><span data-prev="holder">Имя владельца</span><span data-prev="exp">ММ/ГГ</span></div>
+            <div class="bank-card__bottom"><span data-prev="holder">Ім’я власника</span><span data-prev="exp">ММ/РР</span></div>
           </div>
-          <div class="demo-note">🔒 <span>Демо-оплата, деньги не списываются. Тестовая карта: <code>4242 4242 4242 4242</code>, любая будущая дата и CVC.</span></div>
+          <div class="demo-note">🔒 <span>Демо-оплата, гроші не списуються. Тестова картка: <code>4242 4242 4242 4242</code>, будь-яка майбутня дата та CVC.</span></div>
           <div class="field" data-f="num">
-            <label for="c-num">Номер карты</label>
+            <label for="c-num">Номер картки</label>
             <input class="input" id="c-num" name="num" inputmode="numeric" autocomplete="off" placeholder="0000 0000 0000 0000">
-            <div class="field__err">Неверный номер карты</div>
+            <div class="field__err">Невірний номер картки</div>
           </div>
           <div class="row2">
             <div class="field" data-f="exp">
-              <label for="c-exp">Срок</label>
-              <input class="input" id="c-exp" name="exp" inputmode="numeric" autocomplete="off" placeholder="ММ/ГГ">
-              <div class="field__err">Неверный срок</div>
+              <label for="c-exp">Термін</label>
+              <input class="input" id="c-exp" name="exp" inputmode="numeric" autocomplete="off" placeholder="ММ/РР">
+              <div class="field__err">Невірний термін</div>
             </div>
             <div class="field" data-f="cvc">
               <label for="c-cvc">CVC</label>
               <input class="input" id="c-cvc" name="cvc" inputmode="numeric" autocomplete="off" placeholder="•••" maxlength="3">
-              <div class="field__err">3 цифры</div>
+              <div class="field__err">3 цифри</div>
             </div>
           </div>
           <div class="field" data-f="holder">
-            <label for="c-holder">Владелец карты</label>
-            <input class="input" id="c-holder" name="holder" autocomplete="off" placeholder="IVAN PETROV" style="text-transform:uppercase">
-            <div class="field__err">Латиницей, как на карте</div>
+            <label for="c-holder">Власник картки</label>
+            <input class="input" id="c-holder" name="holder" autocomplete="off" placeholder="IVAN PETRENKO" style="text-transform:uppercase">
+            <div class="field__err">Латиницею, як на картці</div>
           </div>
         </div></div></div>
 
         <div class="collapse" id="cash-box"><div><div class="form">
           <div class="field">
-            <label for="c-change">Сдача с (необязательно)</label>
-            <input class="input" id="c-change" name="change" inputmode="numeric" placeholder="Например, 2000">
+            <label for="c-change">Решта з (необов’язково)</label>
+            <input class="input" id="c-change" name="change" inputmode="numeric" placeholder="Наприклад, 1000">
           </div>
         </div></div></div>
 
         <div class="field">
-          <label for="c-comment">Комментарий</label>
-          <input class="input" id="c-comment" name="comment" placeholder="Без сахара, на овсяном молоке…">
+          <label for="c-comment">Коментар</label>
+          <input class="input" id="c-comment" name="comment" placeholder="Без цукру, на вівсяному молоці…">
         </div>
 
         <div class="card summary" id="summary" style="margin-top:6px">${summaryHtml('pickup')}
-          <button class="btn btn--block" type="submit" id="pay-btn">Оплатить ${rub(cartSubtotal())}</button>
-          <p class="hint">Это портфолио-проект: заказ никуда не отправляется.</p>
+          <button class="btn btn--block" type="submit" id="pay-btn">Оплатити ${uah(cartSubtotal())}</button>
+          <p class="hint">Це портфоліо-проєкт: замовлення нікуди не надсилається.</p>
         </div>
       </form>`;
   };
@@ -411,18 +411,18 @@
         <div class="success__check">
           <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45"/><path d="M30 52l13 13 27-29"/></svg>
         </div>
-        <h1>Заказ оформлен!</h1>
-        <p class="muted">${esc(o.name)}, спасибо! ${o.method === 'delivery' ? 'Курьер привезёт заказ примерно через 30–40 минут.' : 'Заказ будет готов через 10–15 минут.'}</p>
+        <h1>Замовлення оформлено!</h1>
+        <p class="muted">${esc(o.name)}, дякуємо! ${o.method === 'delivery' ? 'Кур’єр привезе замовлення приблизно за 30–40 хвилин.' : 'Замовлення буде готове за 10–15 хвилин.'}</p>
         <div class="success__num">№ ${o.number}</div>
         <div class="card">
-          <div><span>Позиции</span><span>${o.count} шт.</span></div>
-          <div><span>${o.method === 'delivery' ? 'Доставка' : 'Самовывоз'}</span><span>${o.method === 'delivery' ? esc(o.address) : 'ул. Садовая, 12'}</span></div>
-          <div><span>Оплата</span><span>${o.pay === 'card' ? 'Картой •••• ' + o.last4 : 'Наличными'}</span></div>
-          <div><span>Сумма</span><b>${rub(o.total)}</b></div>
+          <div><span>Позиції</span><span>${o.count} шт.</span></div>
+          <div><span>${o.method === 'delivery' ? 'Доставка' : 'Самовивіз'}</span><span>${o.method === 'delivery' ? esc(o.address) : 'вул. Ярославів Вал, 12'}</span></div>
+          <div><span>Оплата</span><span>${o.pay === 'card' ? 'Карткою •••• ' + o.last4 : 'Готівкою'}</span></div>
+          <div><span>Сума</span><b>${uah(o.total)}</b></div>
         </div>
         <div class="actions">
-          <a href="#reviews" class="btn btn--block">Оставить отзыв</a>
-          <a href="#menu" class="btn btn--ghost btn--block">Вернуться в меню</a>
+          <a href="#reviews" class="btn btn--block">Залишити відгук</a>
+          <a href="#menu" class="btn btn--ghost btn--block">Повернутися до меню</a>
         </div>
       </div>`;
   };
@@ -430,7 +430,7 @@
   /* ---------- Отзывы ---------- */
   const allReviews = () => [...state.reviews, ...SEED_REVIEWS];
   const AVATAR_COLORS = ['#d6a676', '#c7b299', '#e3b58f', '#b89f7e', '#e9cfae'];
-  const fmtDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const fmtDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
 
   function reviewCard(r, isNew = false) {
     const color = AVATAR_COLORS[r.name.charCodeAt(0) % AVATAR_COLORS.length];
@@ -440,48 +440,48 @@
         <div class="review__head">
           <div class="avatar" style="background:${color}">${esc(r.name[0].toUpperCase())}</div>
           <div><b>${esc(r.name)}</b><div class="review__meta">${stars(r.rating)}<span>${fmtDate(r.date)}</span></div></div>
-          ${mine ? `<button class="review__del" data-del-review="${r.id}">Удалить</button>` : ''}
+          ${mine ? `<button class="review__del" data-del-review="${r.id}">Видалити</button>` : ''}
         </div>
         <p>${esc(r.text)}</p>
       </article>`;
   }
 
-  const RATING_LABELS = ['', 'Плохо', 'Так себе', 'Нормально', 'Хорошо', 'Отлично!'];
+  const RATING_LABELS = ['', 'Погано', 'Так собі', 'Нормально', 'Добре', 'Чудово!'];
 
   pages.reviews = () => {
     const list = allReviews();
     const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
     const dist = [5, 4, 3, 2, 1].map((n) => [n, list.filter((r) => r.rating === n).length]);
     return `
-      <h1 class="title">Отзывы</h1>
+      <h1 class="title">Відгуки</h1>
       <div class="card rating-summary">
-        <div class="rating-summary__big"><b>${avg.toFixed(1).replace('.', ',')}</b>${stars(Math.round(avg))}<br><span>${list.length} ${plural(list.length, ['отзыв', 'отзыва', 'отзывов'])}</span></div>
+        <div class="rating-summary__big"><b>${avg.toFixed(1).replace('.', ',')}</b>${stars(Math.round(avg))}<br><span>${list.length} ${plural(list.length, ['відгук', 'відгуки', 'відгуків'])}</span></div>
         <div class="bars">
           ${dist.map(([n, c]) => `<div class="bar"><span>${n}</span><div class="bar__track"><div class="bar__fill" data-w="${(c / list.length) * 100}"></div></div><span>${c}</span></div>`).join('')}
         </div>
       </div>
 
       <section class="section">
-        <h2 class="h2" style="margin-bottom:14px">Оставить отзыв</h2>
+        <h2 class="h2" style="margin-bottom:14px">Залишити відгук</h2>
         <form class="card form" id="review-form" novalidate style="padding:18px">
           <div class="field" data-f="rating">
-            <div class="star-input" role="radiogroup" aria-label="Оценка">
+            <div class="star-input" role="radiogroup" aria-label="Оцінка">
               ${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-star="${i}" role="radio" aria-checked="false" aria-label="${i}">${ICON.star}</button>`).join('')}
             </div>
-            <div class="star-input__label" id="star-label">Нажмите на звезду</div>
-            <div class="field__err">Поставьте оценку</div>
+            <div class="star-input__label" id="star-label">Натисніть на зірку</div>
+            <div class="field__err">Поставте оцінку</div>
           </div>
           <div class="field" data-f="name">
-            <label for="r-name">Имя</label>
-            <input class="input" id="r-name" name="name" maxlength="30" placeholder="Ваше имя">
-            <div class="field__err">Введите имя</div>
+            <label for="r-name">Ім’я</label>
+            <input class="input" id="r-name" name="name" maxlength="30" placeholder="Ваше ім’я">
+            <div class="field__err">Введіть ім’я</div>
           </div>
           <div class="field" data-f="text">
-            <label for="r-text">Отзыв</label>
-            <textarea class="input" id="r-text" name="text" maxlength="500" placeholder="Что понравилось, что улучшить?"></textarea>
-            <div class="field__err">Минимум 10 символов</div>
+            <label for="r-text">Відгук</label>
+            <textarea class="input" id="r-text" name="text" maxlength="500" placeholder="Що сподобалося, що покращити?"></textarea>
+            <div class="field__err">Мінімум 10 символів</div>
           </div>
-          <button class="btn btn--block" type="submit">Опубликовать</button>
+          <button class="btn btn--block" type="submit">Опублікувати</button>
         </form>
       </section>
 
@@ -495,43 +495,43 @@
     const today = new Date().getDay();
     const order = [1, 2, 3, 4, 5, 6, 0];
     return `
-      <h1 class="title">Контакты</h1>
+      <h1 class="title">Контакти</h1>
       <div class="card map">
-        <iframe title="Карта" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=37.6105%2C55.7555%2C37.6245%2C55.7615&amp;layer=mapnik&amp;marker=55.7585%2C37.6175"></iframe>
+        <iframe title="Мапа" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=30.5060%2C50.4450%2C30.5200%2C50.4510&amp;layer=mapnik&amp;marker=50.4480%2C30.5130"></iframe>
       </div>
       <div class="card contact-list stagger">
-        <a class="contact" href="https://www.openstreetmap.org/?mlat=55.7585&mlon=37.6175#map=17/55.7585/37.6175" target="_blank" rel="noopener">
-          <span class="contact__ico">${ICON.pin}</span><div>ул. Садовая, 12<small>Москва · 3 минуты от метро</small></div>
+        <a class="contact" href="https://www.openstreetmap.org/?mlat=50.4480&mlon=30.5130#map=17/50.4480/30.5130" target="_blank" rel="noopener">
+          <span class="contact__ico">${ICON.pin}</span><div>вул. Ярославів Вал, 12<small>Київ · 3 хвилини від метро</small></div>
         </a>
-        <a class="contact" href="tel:+74950000000">
-          <span class="contact__ico">${ICON.phone}</span><div>+7 (495) 000-00-00<small>Позвонить</small></div>
+        <a class="contact" href="tel:+380440000000">
+          <span class="contact__ico">${ICON.phone}</span><div>+380 (44) 000-00-00<small>Зателефонувати</small></div>
         </a>
         <a class="contact" href="mailto:hello@maria-coffee.example">
-          <span class="contact__ico">${ICON.mail}</span><div>hello@maria-coffee.example<small>Написать нам</small></div>
+          <span class="contact__ico">${ICON.mail}</span><div>hello@maria-coffee.example<small>Написати нам</small></div>
         </a>
       </div>
 
       <section class="section">
-        <h2 class="h2" style="margin-bottom:14px">Часы работы</h2>
+        <h2 class="h2" style="margin-bottom:14px">Години роботи</h2>
         <div class="card hours">
           ${order.map((d) => `<div class="${d === today ? 'today' : ''}"><span>${DAY_NAMES[d]}</span><span>${HOURS[d][0]}:00 – ${HOURS[d][1]}:00</span></div>`).join('')}
         </div>
       </section>
 
       <section class="section">
-        <h2 class="h2" style="margin-bottom:14px">Мы в соцсетях</h2>
+        <h2 class="h2" style="margin-bottom:14px">Ми в соцмережах</h2>
         <div class="socials">
           <a class="card" href="#contacts">Telegram</a>
           <a class="card" href="#contacts">VK</a>
           <a class="card" href="#contacts">Instagram</a>
         </div>
       </section>
-      <p class="footer-note">© ${new Date().getFullYear()} Maria coffee · демо-проект для портфолио</p>`;
+      <p class="footer-note">© ${new Date().getFullYear()} Maria coffee · демо-проєкт для портфоліо</p>`;
   };
 
   /* ---------- Роутер ---------- */
   const TAB_OF = { checkout: 'cart', success: 'cart' };
-  const TITLES = { home: 'Maria — кофейня', menu: 'Меню', cart: 'Корзина', checkout: 'Оформление', success: 'Заказ оформлен', reviews: 'Отзывы', contacts: 'Контакты' };
+  const TITLES = { home: 'Maria — кав’ярня', menu: 'Меню', cart: 'Кошик', checkout: 'Оформлення', success: 'Замовлення оформлено', reviews: 'Відгуки', contacts: 'Контакти' };
 
   function render() {
     const route = location.hash.slice(1) || 'home';
@@ -590,14 +590,14 @@
         const row = $(`[data-row="${id}"]`);
         row.classList.add('removing');
         setTimeout(() => { setQty(id, 0); render(); }, 280);
-        toast(`«${byId[id].name}» удалён`, '🗑️');
+        toast(`«${byId[id].name}» видалено`, '🗑️');
         return;
       }
       setQty(id, next);
       $(`[data-q="${id}"]`).textContent = state.cart[id];
-      $(`[data-line="${id}"]`).textContent = rub(byId[id].price * state.cart[id]);
+      $(`[data-line="${id}"]`).textContent = uah(byId[id].price * state.cart[id]);
       $('[data-sum-rows]').outerHTML = summaryHtml('pickup');
-      $('.muted', view).textContent = `${cartCount()} ${plural(cartCount(), ['товар', 'товара', 'товаров'])}`;
+      $('.muted', view).textContent = `${cartCount()} ${plural(cartCount(), ['товар', 'товари', 'товарів'])}`;
       return;
     }
 
@@ -606,7 +606,7 @@
       state.reviews = state.reviews.filter((r) => r.id !== del.dataset.delReview);
       store.set('reviews', state.reviews);
       render();
-      toast('Отзыв удалён', '🗑️');
+      toast('Відгук видалено', '🗑️');
     }
   });
 
@@ -644,7 +644,7 @@
       $('[data-sum-rows]').outerHTML = summaryHtml(method());
       const sub = cartSubtotal();
       const total = sub + (method() === 'delivery' && sub < FREE_DELIVERY_FROM ? DELIVERY_FEE : 0);
-      $('#pay-btn').textContent = pay() === 'card' ? `Оплатить ${rub(total)}` : `Заказать · ${rub(total)}`;
+      $('#pay-btn').textContent = pay() === 'card' ? `Оплатити ${uah(total)}` : `Замовити · ${uah(total)}`;
     };
 
     form.addEventListener('change', (e) => {
@@ -661,12 +661,14 @@
       const t = e.target;
       t.closest('.field')?.classList.remove('invalid');
       if (t.name === 'phone') {
+        // формат +380 (XX) XXX-XX-XX; «067…» та «80…» доповнюємо до 380
         let d = t.value.replace(/\D/g, '');
-        if (d[0] === '8') d = '7' + d.slice(1);
-        if (d && d[0] !== '7') d = '7' + d;
-        d = d.slice(0, 11);
-        const p = [d.slice(1, 4), d.slice(4, 7), d.slice(7, 9), d.slice(9, 11)];
-        t.value = !d ? '' : '+7' + (p[0] ? ` (${p[0]}` : '') + (p[1] ? `) ${p[1]}` : '') + (p[2] ? `-${p[2]}` : '') + (p[3] ? `-${p[3]}` : '');
+        if (!d.startsWith('380')) d = '380' + d.replace(/^3?8?0?/, '');
+        d = d.slice(0, 12);
+        const p = [d.slice(3, 5), d.slice(5, 8), d.slice(8, 10), d.slice(10, 12)];
+        t.value = !p[0]
+          ? (e.inputType?.startsWith('delete') ? '' : '+380')
+          : '+380' + ` (${p[0]}` + (p[1] ? `) ${p[1]}` : '') + (p[2] ? `-${p[2]}` : '') + (p[3] ? `-${p[3]}` : '');
       }
       if (t.name === 'num') {
         t.value = t.value.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
@@ -675,12 +677,12 @@
       if (t.name === 'exp') {
         const d = t.value.replace(/\D/g, '').slice(0, 4);
         t.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
-        $('[data-prev="exp"]').textContent = t.value || 'ММ/ГГ';
+        $('[data-prev="exp"]').textContent = t.value || 'ММ/РР';
       }
       if (t.name === 'cvc' || t.name === 'change') t.value = t.value.replace(/\D/g, '');
       if (t.name === 'holder') {
         t.value = t.value.replace(/[^a-zA-Z\s]/g, '');
-        $('[data-prev="holder"]').textContent = t.value || 'Имя владельца';
+        $('[data-prev="holder"]').textContent = t.value || 'Ім’я власника';
       }
     });
 
@@ -688,7 +690,7 @@
       e.preventDefault();
       const errors = {
         name: val('name').length < 2,
-        phone: val('phone').replace(/\D/g, '').length !== 11,
+        phone: val('phone').replace(/\D/g, '').length !== 12,
         address: method() === 'delivery' && val('address').length < 5,
       };
       if (pay() === 'card') {
@@ -712,13 +714,13 @@
       if (first) {
         $(`[data-f="${first}"] .input`, form).focus({ preventScroll: true });
         $(`[data-f="${first}"]`, form).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        toast('Проверьте выделенные поля', '⚠️');
+        toast('Перевірте виділені поля', '⚠️');
         return;
       }
 
       const btn = $('#pay-btn');
       btn.disabled = true;
-      btn.innerHTML = `<span class="loader"></span> ${pay() === 'card' ? 'Проводим оплату…' : 'Оформляем…'}`;
+      btn.innerHTML = `<span class="loader"></span> ${pay() === 'card' ? 'Проводимо оплату…' : 'Оформлюємо…'}`;
 
       const sub = cartSubtotal();
       state.lastOrder = {
@@ -779,7 +781,7 @@
       const list = $('#review-list');
       list.firstElementChild.classList.add('new');
       list.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      toast('Спасибо за отзыв!', '💛');
+      toast('Дякуємо за відгук!', '💛');
     });
   }
 
