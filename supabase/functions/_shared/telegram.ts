@@ -13,14 +13,19 @@ export async function tg(method: string, payload: unknown) {
 }
 
 // Нове замовлення → повідомлення в чат кав’ярні; id повідомлення зберігаємо для редагування
+// Помилка Telegram не повинна зривати замовлення — лише логуємо її
 export async function notifyNewOrder(order: any) {
-  const res = await tg('sendMessage', {
-    chat_id: env('TELEGRAM_CHAT_ID'),
-    text: '🔔 Нове замовлення!\n\n' + orderMessage(order),
-    parse_mode: 'HTML',
-    reply_markup: orderKeyboard(order),
-  });
-  if (res.ok) await db.from('orders').update({ tg_message_id: res.result.message_id }).eq('id', order.id);
+  try {
+    const res = await tg('sendMessage', {
+      chat_id: env('TELEGRAM_CHAT_ID'),
+      text: '🔔 Нове замовлення!\n\n' + orderMessage(order),
+      parse_mode: 'HTML',
+      reply_markup: orderKeyboard(order),
+    });
+    if (res.ok) await db.from('orders').update({ tg_message_id: res.result.message_id }).eq('id', order.id);
+  } catch (e) {
+    console.error('notifyNewOrder', e);
+  }
 }
 
 export async function refreshOrderMessage(order: any) {

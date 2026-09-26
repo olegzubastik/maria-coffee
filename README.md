@@ -2,7 +2,7 @@
 
 Мобільний сайт кав’ярні «Maria» у стилі мобільного застосунку. Це демо-проєкт для портфоліо на чистих **HTML, CSS і JavaScript**, без фреймворків і збирання.
 
-**Демо:** https://USERNAME.github.io/maria-coffee/
+**Демо:** https://olegzubastik.github.io/maria-coffee/
 
 ## Можливості
 
@@ -71,7 +71,7 @@ tests/backend.test.ts             # node --test tests/backend.test.ts
    npx supabase login
    npx supabase link --project-ref <PROJECT_REF>
    npx supabase db push
-   npx supabase secrets set MONO_TOKEN=<токен monobank> TELEGRAM_BOT_TOKEN=<токен бота> TELEGRAM_WEBHOOK_SECRET=<випадковий рядок> SITE_URL=https://USERNAME.github.io/maria-coffee/
+   npx supabase secrets set MONO_TOKEN=<токен monobank> TELEGRAM_BOT_TOKEN=<токен бота> TELEGRAM_WEBHOOK_SECRET=<випадковий рядок> SITE_URL=https://olegzubastik.github.io/maria-coffee/
    npx supabase functions deploy
    curl "https://api.telegram.org/bot<токен бота>/setWebhook?url=https://<PROJECT_REF>.supabase.co/functions/v1/telegram-webhook&secret_token=<той самий випадковий рядок>"
    ```
@@ -108,7 +108,7 @@ python -m http.server 8000
 
 1. Створіть репозиторій `maria-coffee` на GitHub і завантажте в нього код.
 2. Відкрийте **Settings → Pages → Source: Deploy from a branch**, гілка `main`, тека `/ (root)`.
-3. За хвилину сайт буде доступний за адресою `https://USERNAME.github.io/maria-coffee/`.
+3. За хвилину сайт буде доступний за адресою `https://olegzubastik.github.io/maria-coffee/`.
 
 ## Подяки
 
