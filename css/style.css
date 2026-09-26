@@ -393,6 +393,61 @@ textarea.input { height: auto; min-height: 110px; padding: 14px 16px; resize: ve
 .loader { display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid rgba(31,22,15,.3); border-top-color: var(--accent-ink); animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ============ Оплата monobank ============ */
+.mono-note {
+  display: flex; gap: 14px; align-items: center;
+  padding: 16px; border-radius: 16px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.mono-note__logo {
+  flex: none; width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: #000; color: #fff; font-weight: 700; letter-spacing: -.5px;
+}
+.mono-note b { display: block; margin-bottom: 2px; }
+.mono-note span { font-size: 13px; color: var(--muted); }
+
+/* ============ Відстеження замовлення ============ */
+.track { text-decoration: none; }
+.track__ico { font-size: 22px; flex: none; }
+.track div { flex: 1; }
+.track__arrow { font-size: 26px; color: var(--accent); line-height: 1; }
+
+.order-loading { display: grid; place-items: center; padding: 120px 0; }
+.loader--accent { width: 34px; height: 34px; border-color: var(--accent-soft); border-top-color: var(--accent); }
+
+.order-head { text-align: center; padding: 20px 0 8px; }
+.order-head__ico { font-size: 52px; margin-bottom: 8px; animation: float 3s ease-in-out infinite; }
+
+.timeline { list-style: none; margin: 24px 0; padding: 0; }
+.timeline li { position: relative; display: flex; gap: 14px; padding-bottom: 22px; color: var(--muted); }
+.timeline li:last-child { padding-bottom: 0; }
+.timeline li::before {
+  content: ''; position: absolute; left: 11px; top: 26px; bottom: 2px; width: 2px;
+  background: var(--surface-2);
+}
+.timeline li:last-child::before { display: none; }
+.timeline li.done::before { background: var(--accent); }
+.timeline__dot {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid var(--surface-2); background: var(--bg);
+  transition: background .4s, border-color .4s;
+}
+.timeline li.done .timeline__dot { background: var(--accent); border-color: var(--accent); }
+.timeline li.current { color: var(--text); }
+.timeline li.current .timeline__dot { border-color: var(--accent); background: var(--accent-soft); animation: ring 1.8s infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(214,166,118,.5); } 70%, 100% { box-shadow: 0 0 0 10px rgba(214,166,118,0); } }
+.timeline b { display: block; }
+.timeline span { font-size: 13px; }
+.timeline li:not(.current):not(.done) b { font-weight: 500; }
+
+.order-items { padding: 14px 16px; margin-bottom: 16px; }
+.order-items div { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+.order-items div span:last-child { color: var(--muted); }
+.order-items__total { margin-top: 6px; padding-top: 12px !important; border-top: 1px dashed var(--line); }
+.order-items__total span { color: var(--muted); }
+#order-view .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
 /* ============ Отзывы ============ */
 .rating-summary { display: flex; gap: 20px; align-items: center; padding: 20px; margin-top: 18px; }
 .rating-summary__big { text-align: center; }

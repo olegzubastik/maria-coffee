@@ -17,9 +17,16 @@
   const state = {
     cart: store.get('cart', {}),            // { itemId: qty }
     reviews: store.get('reviews', []),      // отзывы пользователя
-    lastOrder: store.get('lastOrder', null),
+    lastOrder: store.get('lastOrder', null),   // демо-режим
+    orders: store.get('orders', []),           // [{id, number, created}] — реальні замовлення
+    pendingCart: store.get('pendingCart', null), // id замовлення, після оплати якого очистити кошик
     menuCat: 'all',
   };
+
+  // Бекенд (Supabase Edge Functions). Без нього сайт працює в демо-режимі.
+  const API = (window.MARIA_API || '').replace(/\/+$/, '');
+  const LIVE = Boolean(API);
+  let pollTimer = null;
 
   const byId = Object.fromEntries(MENU.map((m) => [m.id, m]));
   // убираем из корзины позиции, которых больше нет в меню
@@ -240,6 +247,7 @@
         <span class="status__dot ${st.open ? '' : 'closed'}"></span>
         <div><b>${st.text}</b><span>вул. Ярославів Вал, 12 · заберіть замовлення без черги</span></div>
       </div>
+      ${trackCard()}
 
       <section class="section">
         <div class="section__head"><h2 class="h2">Популярне</h2><a href="#menu" class="link">Усе меню</a></div>
@@ -354,6 +362,11 @@
         </div>
 
         <div class="collapse open" id="card-box"><div><div class="form">
+          ${LIVE ? `
+          <div class="mono-note">
+            <span class="mono-note__logo">mono</span>
+            <div><b>Оплата через monobank</b><span>Відкриється захищена сторінка оплати: картка будь-якого банку, Apple Pay або Google Pay.</span></div>
+          </div>` : `
           <div class="bank-card" aria-hidden="true">
             <div class="bank-card__top"><span>Maria</span><span class="bank-card__chip"></span></div>
             <div class="bank-card__num" data-prev="num">•••• •••• •••• ••••</div>
@@ -381,7 +394,7 @@
             <label for="c-holder">Власник картки</label>
             <input class="input" id="c-holder" name="holder" autocomplete="off" placeholder="IVAN PETRENKO" style="text-transform:uppercase">
             <div class="field__err">Латиницею, як на картці</div>
-          </div>
+          </div>`}
         </div></div></div>
 
         <div class="collapse" id="cash-box"><div><div class="form">
@@ -397,11 +410,115 @@
         </div>
 
         <div class="card summary" id="summary" style="margin-top:6px">${summaryHtml('pickup')}
-          <button class="btn btn--block" type="submit" id="pay-btn">Оплатити ${uah(cartSubtotal())}</button>
-          <p class="hint">Це портфоліо-проєкт: замовлення нікуди не надсилається.</p>
+          <button class="btn btn--block" type="submit" id="pay-btn">${payLabel('card', cartSubtotal())}</button>
+          <p class="hint">${LIVE ? 'Замовлення одразу отримає бариста.' : 'Це портфоліо-проєкт: замовлення нікуди не надсилається.'}</p>
         </div>
       </form>`;
   };
+
+  function payLabel(pay, total) {
+    if (pay === 'cash') return `Замовити · ${uah(total)}`;
+    return LIVE ? `Перейти до оплати · ${uah(total)}` : `Оплатити ${uah(total)}`;
+  }
+
+  function clearCart() {
+    state.cart = {};
+    store.set('cart', state.cart);
+    updateBadges();
+  }
+
+  /* ---------- Відстеження замовлення (#order/<id>) ---------- */
+  function trackCard() {
+    const o = state.orders[0];
+    if (!LIVE || !o || Date.now() - o.created > 3 * 3600e3) return '';
+    return `
+      <a class="card status track" href="#order/${esc(o.id)}">
+        <span class="track__ico">🧾</span>
+        <div><b>Замовлення №${esc(o.number)}</b><span>Відстежити статус</span></div>
+        <span class="track__arrow">›</span>
+      </a>`;
+  }
+
+  pages.order = (id) => {
+    if (!LIVE || !id) { location.hash = '#home'; return ''; }
+    return `<div id="order-view"><div class="order-loading"><span class="loader loader--accent"></span></div></div>`;
+  };
+
+  let lastOrderHtml = '';
+  async function loadOrder(id) {
+    let o;
+    try {
+      const res = await fetch(`${API}/order-status?id=${encodeURIComponent(id)}`);
+      if (res.status === 404) {
+        clearInterval(pollTimer);
+        $('#order-view').innerHTML = empty('🔍', 'Замовлення не знайдено', 'Перевірте посилання або зв’яжіться з нами.', '#contacts', 'Контакти');
+        return;
+      }
+      o = await res.json();
+    } catch { return; } // тимчасова помилка мережі — спробуємо на наступному опитуванні
+
+    const box = $('#order-view');
+    if (!box) return;
+    if (state.pendingCart === id && o.payment_status === 'paid') {
+      clearCart();
+      state.pendingCart = null;
+      store.set('pendingCart', null);
+    }
+    if (o.status === 'done' || o.status === 'cancelled') clearInterval(pollTimer);
+
+    const html = orderHtml(o);
+    if (html !== lastOrderHtml) { box.innerHTML = html; lastOrderHtml = html; }
+  }
+
+  function orderHtml(o) {
+    const delivery = o.method === 'delivery';
+    const steps = [
+      ...(o.pay === 'card' ? [['awaiting_payment', 'Оплата', 'Підтвердження від monobank']] : []),
+      ['accepted', 'Прийнято', 'Бариста отримав замовлення'],
+      ['preparing', 'Готується', 'Варимо каву та збираємо замовлення'],
+      ['ready', 'Готово', delivery ? 'Чекає на кур’єра' : 'Можна забирати на касі'],
+      ['done', delivery ? 'Передано кур’єру' : 'Видано', delivery ? 'Кур’єр уже в дорозі' : 'Смачного!'],
+    ];
+    const cur = steps.findIndex(([k]) => k === o.status);
+    const items = `
+      <div class="card order-items">
+        ${o.items.map((i) => `<div><span>${esc(i.name)}</span><span>× ${i.qty}</span></div>`).join('')}
+        <div class="order-items__total"><span>${o.pay === 'card' ? (o.payment_status === 'paid' ? 'Оплачено карткою' : 'Картка') : 'Готівкою при отриманні'}</span><b>${uah(o.total)}</b></div>
+      </div>`;
+
+    if (o.status === 'cancelled') {
+      const failed = o.payment_status === 'failed';
+      return `
+        <div class="order-head">
+          <div class="order-head__ico">${failed ? '😕' : '❌'}</div>
+          <h1 class="title">${failed ? 'Оплата не пройшла' : 'Замовлення скасовано'}</h1>
+          <p class="muted">№${o.number} · ${failed ? 'гроші не списано, кошик збережено' : 'якщо це помилка — зателефонуйте нам'}</p>
+        </div>
+        ${items}
+        <div class="actions">
+          ${failed ? '<a href="#cart" class="btn btn--block">Повернутися до кошика</a>' : '<a href="tel:+380440000000" class="btn btn--block">Зателефонувати</a>'}
+          <a href="#menu" class="btn btn--ghost btn--block">До меню</a>
+        </div>`;
+    }
+
+    const payUrl = o.pageUrl && /^https:\/\//.test(o.pageUrl) ? o.pageUrl : null;
+    return `
+      <div class="order-head">
+        <div class="order-head__ico">${o.status === 'done' ? '🎉' : '☕'}</div>
+        <h1 class="title">Замовлення №${o.number}</h1>
+        <p class="muted">${o.status === 'done' ? 'Дякуємо, що обрали Maria!' : 'Статус оновлюється автоматично'}</p>
+      </div>
+      <ol class="timeline">
+        ${steps.map(([, t, d], i) => `
+          <li class="${i < cur ? 'done' : i === cur ? 'current' : ''}">
+            <span class="timeline__dot"></span>
+            <div><b>${t}</b><span>${d}</span></div>
+          </li>`).join('')}
+      </ol>
+      ${payUrl ? `<a class="btn btn--block" href="${esc(payUrl)}" style="margin-bottom:16px">Оплатити ${uah(o.total)}</a>` : ''}
+      ${items}
+      <a href="#menu" class="btn btn--ghost btn--block">До меню</a>`;
+  }
 
   pages.success = () => {
     const o = state.lastOrder;
@@ -530,14 +647,16 @@
   };
 
   /* ---------- Роутер ---------- */
-  const TAB_OF = { checkout: 'cart', success: 'cart' };
-  const TITLES = { home: 'Maria — кав’ярня', menu: 'Меню', cart: 'Кошик', checkout: 'Оформлення', success: 'Замовлення оформлено', reviews: 'Відгуки', contacts: 'Контакти' };
+  const TAB_OF = { checkout: 'cart', success: 'cart', order: 'cart' };
+  const TITLES = { home: 'Maria — кав’ярня', menu: 'Меню', cart: 'Кошик', checkout: 'Оформлення', success: 'Замовлення оформлено', order: 'Замовлення', reviews: 'Відгуки', contacts: 'Контакти' };
 
   function render() {
-    const route = location.hash.slice(1) || 'home';
+    const [route, param] = (location.hash.slice(1) || 'home').split('/');
     const page = pages[route] ? route : 'home';
+    clearInterval(pollTimer);
+    lastOrderHtml = '';
     closeSheet();
-    view.innerHTML = pages[page]();
+    view.innerHTML = pages[page](param);
     view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter');
     window.scrollTo(0, 0);
     document.title = page === 'home' ? TITLES.home : `${TITLES[page]} · Maria`;
@@ -547,7 +666,7 @@
       a.classList.toggle('active', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    afterRender[page]?.();
+    afterRender[page]?.(param);
   }
 
   const afterRender = {
@@ -556,6 +675,11 @@
       initReviewForm();
     },
     checkout: initCheckout,
+    order(id) {
+      if (!LIVE || !id) return;
+      loadOrder(id);
+      pollTimer = setInterval(() => loadOrder(id), 5000);
+    },
   };
 
   /* ---------- Делегирование кликов ---------- */
@@ -644,7 +768,7 @@
       $('[data-sum-rows]').outerHTML = summaryHtml(method());
       const sub = cartSubtotal();
       const total = sub + (method() === 'delivery' && sub < FREE_DELIVERY_FROM ? DELIVERY_FEE : 0);
-      $('#pay-btn').textContent = pay() === 'card' ? `Оплатити ${uah(total)}` : `Замовити · ${uah(total)}`;
+      $('#pay-btn').textContent = payLabel(pay(), total);
     };
 
     form.addEventListener('change', (e) => {
@@ -693,7 +817,7 @@
         phone: val('phone').replace(/\D/g, '').length !== 12,
         address: method() === 'delivery' && val('address').length < 5,
       };
-      if (pay() === 'card') {
+      if (pay() === 'card' && !LIVE) {
         const num = val('num').replace(/\s/g, '');
         const [mm, yy] = val('exp').split('/').map(Number);
         const now = new Date();
@@ -720,6 +844,7 @@
 
       const btn = $('#pay-btn');
       btn.disabled = true;
+      if (LIVE) { submitOrder(btn); return; }
       btn.innerHTML = `<span class="loader"></span> ${pay() === 'card' ? 'Проводимо оплату…' : 'Оформлюємо…'}`;
 
       const sub = cartSubtotal();
@@ -741,6 +866,56 @@
         location.hash = '#success';
       }, 1600);
     });
+
+    // Реальне замовлення: сервер сам рахує суму за цінами з бази
+    async function submitOrder(btn) {
+      btn.innerHTML = `<span class="loader"></span> ${pay() === 'card' ? 'Створюємо платіж…' : 'Оформлюємо…'}`;
+      const fail = (msg) => {
+        toast(msg, '⚠️');
+        btn.disabled = false;
+        updateTotals();
+      };
+
+      let res, data;
+      try {
+        res = await fetch(`${API}/create-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: val('name'),
+            phone: val('phone'),
+            method: method(),
+            address: val('address'),
+            pay: pay(),
+            comment: val('comment'),
+            change: val('change'),
+            items: Object.entries(state.cart).map(([id, qty]) => ({ id, qty })),
+          }),
+        });
+        data = await res.json();
+      } catch {
+        fail('Немає зв’язку з сервером. Спробуйте ще раз.');
+        return;
+      }
+      if (!res.ok) {
+        for (const k of Object.keys(data.fields || {})) setInvalid(form, k, true);
+        fail(data.error || 'Помилка сервера');
+        return;
+      }
+
+      state.orders = [{ id: data.id, number: data.number, created: Date.now() }, ...state.orders].slice(0, 10);
+      store.set('orders', state.orders);
+
+      if (data.pageUrl) {
+        // кошик очистимо, коли оплата підтвердиться (якщо клієнт скасує — товари залишаться)
+        state.pendingCart = data.id;
+        store.set('pendingCart', data.id);
+        location.href = data.pageUrl;
+        return;
+      }
+      clearCart();
+      location.hash = `#order/${data.id}`;
+    }
   }
 
   /* ---------- Форма отзыва ---------- */
