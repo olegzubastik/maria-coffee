@@ -61,12 +61,19 @@
     [9, 23], [8, 22], [8, 22], [8, 22], [8, 22], [8, 23], [9, 23],
   ];
   const DAY_NAMES = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота'];
+  // Час у Києві, а не в часовому поясі відвідувача
+  function kyivNow() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Kyiv', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
+    }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return { day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday), hours: +p.hour + +p.minute / 60 };
+  }
+
   function openStatus() {
-    const now = new Date();
-    const [from, to] = HOURS[now.getDay()];
-    const h = now.getHours() + now.getMinutes() / 60;
+    const { day, hours: h } = kyivNow();
+    const [from, to] = HOURS[day];
     if (h >= from && h < to) return { open: true, text: `Відчинено до ${to}:00` };
-    const nextFrom = h < from ? from : HOURS[(now.getDay() + 1) % 7][0];
+    const nextFrom = h < from ? from : HOURS[(day + 1) % 7][0];
     return { open: false, text: `Зачинено · відчинимося о ${nextFrom}:00` };
   }
 
@@ -100,7 +107,10 @@
   }
 
   function flyToCart(fromEl) {
-    const target = $('.tabbar [data-tab="cart"] svg');
+    // летимо до тієї іконки кошика, яку зараз видно (таб-бар на телефоні, шапка на комп'ютері)
+    const target = $$('.tabbar [data-tab="cart"] svg, .topbar__cart svg')
+      .find((el) => el.getBoundingClientRect().width > 0 && getComputedStyle(el.closest('.tabbar, .topbar')).display !== 'none');
+    if (!target) { updateBadges(true); return; }
     const a = fromEl.getBoundingClientRect();
     const b = target.getBoundingClientRect();
     const dot = document.createElement('div');
@@ -237,17 +247,21 @@
     return `
       <section class="hero">
         <img class="hero__img" src="${IMG('1509042239860-f550ce710b93').replace('w=600&h=600', 'w=900&h=1000')}" alt="">
-        <span class="hero__tag">${greet} ✦</span>
-        <h1>Кава, яку<br>хочеться <em>смакувати</em></h1>
-        <p>Свіже обсмаження, домашні десерти та сніданки весь день.</p>
-        <a href="#menu" class="btn">Дивитися меню</a>
+        <div class="hero__text">
+          <span class="hero__tag">${greet} ✦</span>
+          <h1>Кава, яку<br>хочеться <em>смакувати</em></h1>
+          <p>Свіже обсмаження, домашні десерти та сніданки весь день.</p>
+          <a href="#menu" class="btn">Дивитися меню</a>
+        </div>
       </section>
 
-      <div class="card status">
-        <span class="status__dot ${st.open ? '' : 'closed'}"></span>
-        <div><b>${st.text}</b><span>вул. Ярославів Вал, 12 · заберіть замовлення без черги</span></div>
+      <div class="home-strip">
+        <div class="card status">
+          <span class="status__dot ${st.open ? '' : 'closed'}"></span>
+          <div><b>${st.text}</b><span>вул. Ярославів Вал, 12 · заберіть замовлення без черги</span></div>
+        </div>
+        <div id="track-slot">${trackCard()}</div>
       </div>
-      ${trackCard()}
 
       <section class="section">
         <div class="section__head"><h2 class="h2">Популярне</h2><a href="#menu" class="link">Усе меню</a></div>
@@ -281,10 +295,15 @@
 
   pages.cart = () => {
     const entries = Object.entries(state.cart);
-    if (!entries.length) return empty('🛍️', 'Кошик порожній', 'Зазирніть у меню — там багато смачного.', '#menu', 'Перейти до меню');
+    const ordersLink = LIVE && state.orders.length ? '<a href="#orders" class="link orders-link">🧾 Мої замовлення</a>' : '';
+    if (!entries.length) {
+      return empty('🛍️', 'Кошик порожній', 'Зазирніть у меню — там багато смачного.', '#menu', 'Перейти до меню')
+        + (ordersLink ? `<p class="center">${ordersLink}</p>` : '');
+    }
     return `
       <h1 class="title">Кошик</h1>
       <p class="muted">${cartCount()} ${plural(cartCount(), ['товар', 'товари', 'товарів'])}</p>
+      <div class="cart-layout">
       <div class="cart-list stagger">
         ${entries.map(([id, q]) => {
           const m = byId[id];
@@ -305,6 +324,8 @@
       </div>
       <div class="card summary" id="summary">${summaryHtml('pickup')}
         <a href="#checkout" class="btn btn--block">Оформити замовлення</a>
+        ${ordersLink ? `<p class="center" style="margin-top:14px">${ordersLink}</p>` : ''}
+      </div>
       </div>`;
   };
 
@@ -427,38 +448,129 @@
     updateBadges();
   }
 
-  /* ---------- Відстеження замовлення (#order/<id>) ---------- */
+  /* ---------- Мої замовлення: зберігаються на телефоні (localStorage) ---------- */
+  // state.orders: [{id, number, created, status?, payment_status?, pay?, method?, total?, items?}]
+  // Останній відомий статус кешується, тож список видно одразу, навіть без мережі.
+  const FINAL = ['done', 'cancelled'];
+  const isActive = (o) => !FINAL.includes(o.status);
+
+  function saveOrderInfo(o) {
+    const entry = state.orders.find((x) => x.id === o.id);
+    if (!entry) return;
+    Object.assign(entry, {
+      number: o.number, status: o.status, payment_status: o.payment_status,
+      pay: o.pay, method: o.method, total: o.total, items: o.items,
+    });
+    store.set('orders', state.orders);
+    updateOrderBadges();
+  }
+
+  function forgetOrder(id) {
+    state.orders = state.orders.filter((x) => x.id !== id);
+    store.set('orders', state.orders);
+    updateOrderBadges();
+  }
+
+  function updateOrderBadges() {
+    const show = LIVE && state.orders.length > 0;
+    $$('[data-orders-link]').forEach((a) => { a.hidden = !show; });
+    $$('[data-active-orders]').forEach((d) => { d.hidden = !show || !state.orders.some(isActive); });
+  }
+
+  // {kind: 'ok', o} | {kind: 'missing'} | null (тимчасова помилка — спробуємо пізніше)
+  async function fetchOrder(id) {
+    try {
+      const res = await fetch(`${API}/order-status?id=${encodeURIComponent(id)}`);
+      if (res.status === 404) return { kind: 'missing' };
+      if (!res.ok) return null; // 5xx (напр. холодний старт)
+      return { kind: 'ok', o: await res.json() };
+    } catch { return null; }
+  }
+
+  async function refreshOrders(list) {
+    await Promise.all(list.map(async ({ id }) => {
+      const r = await fetchOrder(id);
+      if (r?.kind === 'ok') saveOrderInfo(r.o);
+      if (r?.kind === 'missing') forgetOrder(id);
+    }));
+  }
+
+  function statusText(o) {
+    if (!o.status) return 'Оновлюємо статус…';
+    if (o.status === 'cancelled') return o.payment_status === 'failed' ? 'Оплата не пройшла' : 'Скасовано';
+    if (o.status === 'done') return o.method === 'delivery' ? 'Передано кур’єру' : 'Видано';
+    return { awaiting_payment: 'Очікує оплати', accepted: 'Прийнято', preparing: 'Готується', ready: 'Готово' }[o.status] ?? o.status;
+  }
+
+  const fmtOrderDate = (ts) => new Date(ts).toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+
+  // Банер на головній: найсвіжіше незавершене замовлення за останню добу
   function trackCard() {
-    const o = state.orders[0];
-    if (!LIVE || !o || Date.now() - o.created > 3 * 3600e3) return '';
+    const o = LIVE && state.orders.find((x) => isActive(x) && Date.now() - x.created < 24 * 3600e3);
+    if (!o) return '';
     return `
       <a class="card status track" href="#order/${esc(o.id)}">
         <span class="track__ico">🧾</span>
-        <div><b>Замовлення №${esc(o.number)}</b><span>Відстежити статус</span></div>
+        <div><b>Замовлення №${esc(o.number)} · ${statusText(o)}</b><span>Відстежити статус</span></div>
         <span class="track__arrow">›</span>
       </a>`;
   }
 
+  pages.orders = () => {
+    if (!LIVE) { location.hash = '#home'; return ''; }
+    if (!state.orders.length) {
+      return empty('🧾', 'Замовлень ще немає', 'Тут з’являться ваші замовлення — вони зберігаються на цьому пристрої.', '#menu', 'Перейти до меню');
+    }
+    return `
+      <div class="narrow">
+        <h1 class="title">Мої замовлення</h1>
+        <p class="muted">Зберігаються на цьому пристрої</p>
+        <div class="orders-list stagger" id="orders-list">${ordersListHtml()}</div>
+      </div>`;
+  };
+
+  function ordersListHtml() {
+    return state.orders.map((o) => {
+      const tone = !o.status ? '' : o.status === 'cancelled' ? 'bad' : o.status === 'done' ? 'done' : 'active';
+      const items = (o.items || []).map((i) => `${esc(i.name)} × ${i.qty}`).join(', ');
+      return `
+        <a class="card order-row" href="#order/${esc(o.id)}">
+          <div class="order-row__top">
+            <b>№${esc(o.number)}</b>
+            <span class="pill pill--${tone}">${statusText(o)}</span>
+          </div>
+          <div class="order-row__meta">${fmtOrderDate(o.created)}${o.total ? ` · ${uah(o.total)}` : ''}</div>
+          ${items ? `<div class="order-row__items">${items}</div>` : ''}
+        </a>`;
+    }).join('');
+  }
+
   pages.order = (id) => {
     if (!LIVE || !id) { location.hash = '#home'; return ''; }
-    return `<div id="order-view"><div class="order-loading"><span class="loader loader--accent"></span></div></div>`;
+    return `<div id="order-view" class="narrow"><div class="order-loading"><span class="loader loader--accent"></span></div></div>`;
   };
 
   let lastOrderHtml = '';
+  const currentOrderId = () => location.hash.slice(1).split('/')[1];
+
   async function loadOrder(id) {
-    let o;
-    try {
-      const res = await fetch(`${API}/order-status?id=${encodeURIComponent(id)}`);
-      if (res.status === 404) {
-        clearInterval(pollTimer);
-        $('#order-view').innerHTML = empty('🔍', 'Замовлення не знайдено', 'Перевірте посилання або зв’яжіться з нами.', '#contacts', 'Контакти');
-        return;
-      }
-      o = await res.json();
-    } catch { return; } // тимчасова помилка мережі — спробуємо на наступному опитуванні
+    const r = await fetchOrder(id);
+    // відповідь могла прийти, коли користувач уже на іншій сторінці
+    if (!r || currentOrderId() !== id || !$('#order-view')) return;
+    if (r.kind === 'missing') {
+      clearInterval(pollTimer);
+      forgetOrder(id);
+      $('#order-view').innerHTML = empty('🔍', 'Замовлення не знайдено', 'Перевірте посилання або зв’яжіться з нами.', '#contacts', 'Контакти');
+      return;
+    }
+    const o = r.o;
+    // замовлення, відкрите за посиланням з іншого пристрою, теж зберігаємо
+    if (!state.orders.some((x) => x.id === o.id)) {
+      state.orders = [{ id: o.id, number: o.number, created: Date.parse(o.created_at) || Date.now() }, ...state.orders].slice(0, 20);
+    }
+    saveOrderInfo(o);
 
     const box = $('#order-view');
-    if (!box) return;
     if (state.pendingCart === id && o.payment_status === 'paid') {
       clearCart();
       state.pendingCart = null;
@@ -517,7 +629,10 @@
       </ol>
       ${payUrl ? `<a class="btn btn--block" href="${esc(payUrl)}" style="margin-bottom:16px">Оплатити ${uah(o.total)}</a>` : ''}
       ${items}
-      <a href="#menu" class="btn btn--ghost btn--block">До меню</a>`;
+      <div class="actions">
+        <a href="#orders" class="btn btn--ghost btn--block">Мої замовлення</a>
+        <a href="#menu" class="btn btn--ghost btn--block">До меню</a>
+      </div>`;
   }
 
   pages.success = () => {
@@ -571,6 +686,8 @@
     const dist = [5, 4, 3, 2, 1].map((n) => [n, list.filter((r) => r.rating === n).length]);
     return `
       <h1 class="title">Відгуки</h1>
+      <div class="reviews-layout">
+      <aside>
       <div class="card rating-summary">
         <div class="rating-summary__big"><b>${avg.toFixed(1).replace('.', ',')}</b>${stars(Math.round(avg))}<br><span>${list.length} ${plural(list.length, ['відгук', 'відгуки', 'відгуків'])}</span></div>
         <div class="bars">
@@ -601,18 +718,22 @@
           <button class="btn btn--block" type="submit">Опублікувати</button>
         </form>
       </section>
+      </aside>
 
-      <section class="section">
+      <section class="section reviews-list-section">
         <div class="reviews" id="review-list">${list.map((r) => reviewCard(r)).join('')}</div>
-      </section>`;
+      </section>
+      </div>`;
   };
 
   /* ---------- Контакты ---------- */
   pages.contacts = () => {
-    const today = new Date().getDay();
+    const today = kyivNow().day;
     const order = [1, 2, 3, 4, 5, 6, 0];
     return `
       <h1 class="title">Контакти</h1>
+      <div class="contacts-layout">
+      <div>
       <div class="card map">
         <iframe title="Мапа" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=30.5060%2C50.4450%2C30.5200%2C50.4510&amp;layer=mapnik&amp;marker=50.4480%2C30.5130"></iframe>
       </div>
@@ -627,7 +748,9 @@
           <span class="contact__ico">${ICON.mail}</span><div>hello@maria-coffee.example<small>Написати нам</small></div>
         </a>
       </div>
+      </div>
 
+      <div>
       <section class="section">
         <h2 class="h2" style="margin-bottom:14px">Години роботи</h2>
         <div class="card hours">
@@ -643,12 +766,14 @@
           <a class="card" href="#contacts">Instagram</a>
         </div>
       </section>
+      </div>
+      </div>
       <p class="footer-note">© ${new Date().getFullYear()} Maria coffee · демо-проєкт для портфоліо</p>`;
   };
 
   /* ---------- Роутер ---------- */
-  const TAB_OF = { checkout: 'cart', success: 'cart', order: 'cart' };
-  const TITLES = { home: 'Maria — кав’ярня', menu: 'Меню', cart: 'Кошик', checkout: 'Оформлення', success: 'Замовлення оформлено', order: 'Замовлення', reviews: 'Відгуки', contacts: 'Контакти' };
+  const TAB_OF = { checkout: 'cart', success: 'cart', order: 'orders' };
+  const TITLES = { home: 'Maria — кав’ярня', menu: 'Меню', cart: 'Кошик', checkout: 'Оформлення', success: 'Замовлення оформлено', order: 'Замовлення', orders: 'Мої замовлення', reviews: 'Відгуки', contacts: 'Контакти' };
 
   function render() {
     const [route, param] = (location.hash.slice(1) || 'home').split('/');
@@ -661,7 +786,7 @@
     window.scrollTo(0, 0);
     document.title = page === 'home' ? TITLES.home : `${TITLES[page]} · Maria`;
     const tab = TAB_OF[page] || page;
-    $$('.tabbar a').forEach((a) => {
+    $$('.tabbar a, .topnav a, .topbar__actions a').forEach((a) => {
       const on = a.dataset.tab === tab;
       a.classList.toggle('active', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -675,6 +800,29 @@
       initReviewForm();
     },
     checkout: initCheckout,
+    // Оновлюємо статуси незавершених замовлень у фоні
+    home() {
+      const active = state.orders.filter(isActive).slice(0, 3);
+      if (!LIVE || !active.length) return;
+      refreshOrders(active).then(() => {
+        const slot = $('#track-slot');
+        if (slot) slot.innerHTML = trackCard();
+      });
+    },
+    orders() {
+      if (!LIVE || !state.orders.length) return;
+      const tick = async () => {
+        const stale = state.orders.filter((o) => isActive(o) || !o.items);
+        if (!stale.length) { clearInterval(pollTimer); return; }
+        await refreshOrders(stale);
+        const list = $('#orders-list');
+        if (!list) return;
+        if (!state.orders.length) { render(); return; }
+        list.innerHTML = ordersListHtml();
+      };
+      tick();
+      pollTimer = setInterval(tick, 10000);
+    },
     order(id) {
       if (!LIVE || !id) return;
       loadOrder(id);
@@ -712,6 +860,7 @@
       const next = (state.cart[id] || 0) + (inc ? 1 : -1);
       if (next <= 0) {
         const row = $(`[data-row="${id}"]`);
+        if (row.classList.contains('removing')) return; // вже видаляється (подвійне натискання)
         row.classList.add('removing');
         setTimeout(() => { setQty(id, 0); render(); }, 280);
         toast(`«${byId[id].name}» видалено`, '🗑️');
@@ -903,8 +1052,9 @@
         return;
       }
 
-      state.orders = [{ id: data.id, number: data.number, created: Date.now() }, ...state.orders].slice(0, 10);
+      state.orders = [{ id: data.id, number: data.number, created: Date.now(), pay: pay(), method: method() }, ...state.orders].slice(0, 20);
       store.set('orders', state.orders);
+      updateOrderBadges();
 
       if (data.pageUrl) {
         // кошик очистимо, коли оплата підтвердиться (якщо клієнт скасує — товари залишаться)
@@ -962,6 +1112,10 @@
 
   /* ---------- Старт ---------- */
   window.addEventListener('hashchange', render);
+  // «Назад» зі сторінки monobank відновлює сторінку з кешу (bfcache) із заблокованою кнопкою —
+  // перемальовуємо, щоб форма знову була робочою
+  window.addEventListener('pageshow', (e) => { if (e.persisted) { updateBadges(); render(); } });
   updateBadges();
+  updateOrderBadges();
   render();
 })();

@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   if (!order) return json({ error: 'Not found' }, 404);
 
   // Якщо вебхук ще не дійшов — звіряємо оплату самі
-  try { order = await syncPayment(order); } catch (e) { console.error(e); }
+  try { order = await syncPayment(order, { throttle: true }); } catch (e) { console.error(e); }
 
   return json({
     id: order.id,

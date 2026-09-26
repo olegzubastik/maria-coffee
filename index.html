@@ -15,16 +15,31 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <a href="#home" class="logo">Maria<span>coffee</span></a>
-      <a href="#cart" class="topbar__cart" aria-label="Кошик">
-        <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
-        <span class="badge" data-cart-count hidden>0</span>
-      </a>
+      <div class="topbar__inner">
+        <a href="#home" class="logo">Maria<span>coffee</span></a>
+        <!-- навігація для комп'ютера; на телефоні — нижній таб-бар -->
+        <nav class="topnav" aria-label="Основна навігація">
+          <a href="#home" data-tab="home">Головна</a>
+          <a href="#menu" data-tab="menu">Меню</a>
+          <a href="#reviews" data-tab="reviews">Відгуки</a>
+          <a href="#contacts" data-tab="contacts">Контакти</a>
+        </nav>
+        <div class="topbar__actions">
+          <a href="#orders" class="topbar__btn" data-tab="orders" data-orders-link hidden aria-label="Мої замовлення" title="Мої замовлення">
+            <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>
+            <span class="badge badge--dot" data-active-orders hidden></span>
+          </a>
+          <a href="#cart" class="topbar__btn topbar__cart" data-tab="cart" aria-label="Кошик" title="Кошик">
+            <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+            <span class="badge" data-cart-count hidden>0</span>
+          </a>
+        </div>
+      </div>
     </header>
 
     <main id="view" class="view" tabindex="-1"></main>
 
-    <nav class="tabbar" aria-label="Основна навігація">
+    <nav class="tabbar" aria-label="Навігація">
       <a href="#home" data-tab="home">
         <svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>
         <span>Головна</span>
@@ -52,6 +67,7 @@
       <div class="sheet__backdrop" data-close></div>
       <div class="sheet__panel" role="dialog" aria-modal="true">
         <div class="sheet__handle"></div>
+        <button class="sheet__close" type="button" data-close aria-label="Закрити">✕</button>
         <div class="sheet__body" id="sheet-body"></div>
       </div>
     </div>

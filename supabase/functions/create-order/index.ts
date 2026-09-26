@@ -6,8 +6,12 @@ import { buildOrder, type MenuItem } from '../_shared/order.ts';
 import { createInvoice } from '../_shared/mono.ts';
 import { notifyNewOrder } from '../_shared/telegram.ts';
 
-const MAX_ORDERS_PER_PHONE = 3;   // захист від спаму: не більше 3 замовлень
-const WINDOW_MINUTES = 10;         // з одного номера за 10 хвилин
+// Захист від спаму (вікно 10 хвилин на один номер):
+// — не більше 3 замовлень, які дійшли до бариста (готівка або оплачені);
+// — не більше 10 спроб загалом (невдалі й покинуті оплати карткою теж рахуються).
+const MAX_REAL_ORDERS = 3;
+const MAX_ATTEMPTS = 10;
+const WINDOW_MINUTES = 10;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
@@ -24,9 +28,11 @@ Deno.serve(async (req) => {
   const o = built.order;
 
   const since = new Date(Date.now() - WINDOW_MINUTES * 60_000).toISOString();
-  const { count } = await db.from('orders').select('id', { count: 'exact', head: true })
-    .eq('phone', o.phone).gte('created_at', since);
-  if ((count ?? 0) >= MAX_ORDERS_PER_PHONE) {
+  const { data: recent, error: recentErr } = await db.from('orders')
+    .select('pay, payment_status').eq('phone', o.phone).gte('created_at', since);
+  if (recentErr) return json({ error: 'Сервіс тимчасово недоступний' }, 500);
+  const reachedBarista = recent.filter((r) => r.pay === 'cash' || r.payment_status === 'paid').length;
+  if (reachedBarista >= MAX_REAL_ORDERS || recent.length >= MAX_ATTEMPTS) {
     return json({ error: 'Забагато замовлень. Спробуйте за кілька хвилин.' }, 429);
   }
 
@@ -48,7 +54,9 @@ Deno.serve(async (req) => {
 
   try {
     const { invoiceId, pageUrl } = await createInvoice(order);
-    await db.from('orders').update({ invoice_id: invoiceId, page_url: pageUrl }).eq('id', order.id);
+    const { error: linkErr } = await db.from('orders').update({ invoice_id: invoiceId, page_url: pageUrl }).eq('id', order.id);
+    // не критично: mono-webhook знайде замовлення за reference (= id замовлення)
+    if (linkErr) console.error('link invoice', order.id, invoiceId, linkErr);
     return json({ id: order.id, number: order.number, pageUrl });
   } catch (e) {
     console.error(e);
